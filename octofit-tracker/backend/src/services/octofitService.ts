@@ -5,7 +5,40 @@ export async function listActivities() {
 }
 
 export async function createActivity(_input: unknown) {
-  throw Object.assign(new Error('Activity validation is not implemented yet'), { status: 501 });
+  if (!_input || typeof _input !== 'object') {
+    throw Object.assign(new Error('Activity input must be an object'), { status: 400 });
+  }
+
+  const input = _input as Record<string, unknown>;
+  const { userId, teamId, type, minutes } = input;
+  const isObjectId = (value: unknown): value is string =>
+    typeof value === 'string' && /^[a-f\d]{24}$/i.test(value);
+
+  if (
+    !isObjectId(userId) ||
+    !isObjectId(teamId) ||
+    typeof type !== 'string' ||
+    !type.trim() ||
+    typeof minutes !== 'number' ||
+    !Number.isFinite(minutes) ||
+    minutes < 1
+  ) {
+    throw Object.assign(new Error('Activity input is invalid'), { status: 400 });
+  }
+
+  const [user, team] = await Promise.all([User.exists({ _id: userId }), Team.exists({ _id: teamId })]);
+  if (!user || !team) {
+    throw Object.assign(new Error('Activity user or team was not found'), { status: 404 });
+  }
+
+  return Activity.create({
+    user: userId,
+    team: teamId,
+    type: type.trim(),
+    minutes,
+    points: minutes,
+    occurredAt: new Date(),
+  });
 }
 
 export async function listTeams() {
